@@ -87,7 +87,7 @@ func EditTask(res http.ResponseWriter, req *http.Request) {
 func isTaskIdValid(res http.ResponseWriter, taskId string) bool {
 	err := Database.Todo.Get("select * from users where id=$1", taskId)
 	if err != nil {
-		http.Error(res, "Failed to fetch task: "+err.Error(), http.StatusInternalServerError)
+		http.Error(res, "Failed to fetch task: "+err.Error(), http.StatusBadRequest)
 		return false
 	}
 	return true
@@ -98,11 +98,11 @@ func DeleteTask(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "Invalid task ID", http.StatusBadRequest)
 		return
 	}
-	//isTaskIdValid := isTaskIdValid(res, taskId)
-	//if !isTaskIdValid {
-	//	http.Error(res, "Invalid task ID", http.StatusBadRequest)
-	//	return
-	//}
+	isTaskIdValid := isTaskIdValid(res, taskId)
+	if !isTaskIdValid {
+		http.Error(res, "Invalid task ID", http.StatusBadRequest)
+		return
+	}
 	fmt.Printf("task Id %v \n", taskId)
 
 	_, err1 := Database.Todo.Exec(`DELETE FROM users where id= $1`, taskId)
