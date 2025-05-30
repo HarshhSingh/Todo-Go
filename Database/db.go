@@ -39,7 +39,7 @@ func Database() error {
 	}
 	dbUrl := os.Getenv("DB_URL")
 	fmt.Printf("DB_URL: %s\n", dbUrl)
-	connStr := fmt.Sprintf("postgresql://%s?sslmode=require", dbUrl)
+	connStr := fmt.Sprintf("%s?sslmode=require", dbUrl)
 	DB, err := sqlx.Open("postgres", connStr)
 	if err != nil {
 		log.Fatalln(err)
