@@ -38,7 +38,6 @@ func Database() error {
 		log.Fatal("Error loading .env file")
 	}
 	dbUrl := os.Getenv("DB_URL")
-	fmt.Printf("DB_URL: %s\n", dbUrl)
 	connStr := fmt.Sprintf("%s?sslmode=require", dbUrl)
 	DB, err := sqlx.Open("postgres", connStr)
 	if err != nil {

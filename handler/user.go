@@ -9,6 +9,7 @@ import (
 	"main/Database/DbHelper"
 	"main/utils"
 	"net/http"
+	"time"
 )
 
 type tasks struct {
@@ -23,6 +24,82 @@ type taskBody struct {
 	Task       string `json:"task" binding:"required"`
 	TaskStatus string `json:"taskStatus" binding:"required"`
 	DueDate    string `json:"dueDate" binding:"required"`
+}
+type userBody struct {
+	Name     string `json:"name" binding:"required"`
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+type loginBody struct {
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+func RegisterUser(res http.ResponseWriter, req *http.Request) {
+	var payload userBody
+	err := utils.DecodeJSONBody(req, &payload)
+	fmt.Printf("payload for /register api %v \n", payload)
+	if err != nil {
+		http.Error(res, "Failed to parse the body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	exists, existsErr := DbHelper.IfEmailExists(payload.Email)
+
+	if existsErr != nil {
+		http.Error(res, "failed to check user existence:"+existsErr.Error(), http.StatusInternalServerError)
+		return
+	}
+	if exists {
+		http.Error(res, "user already exists", http.StatusBadRequest)
+		return
+	}
+	hashedPassword, err := utils.HashPassword(payload.Password)
+
+	if err != nil {
+		http.Error(res, "Failed to hash password: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	err1 := DbHelper.RegisterUser(payload.Name, payload.Email, hashedPassword)
+	if err1 != nil {
+		http.Error(res, "Failed to register: "+err1.Error(), http.StatusInternalServerError)
+		return
+	}
+	res.WriteHeader(http.StatusOK)
+
+	utils.RespondJSON(res, http.StatusCreated, struct {
+		Message string `json:"message"`
+	}{
+		Message: "User registered",
+	})
+
+}
+func LoginUser(res http.ResponseWriter, req *http.Request) {
+	var payload loginBody
+	err := utils.DecodeJSONBody(req, &payload)
+	fmt.Printf("payload for /login api %v \n", payload)
+	if err != nil {
+		http.Error(res, "Failed to parse the body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	userId, err1 := DbHelper.LoginUser(payload.Email, payload.Password)
+	if err1 != nil {
+		http.Error(res, "Failed to login: "+err1.Error(), http.StatusInternalServerError)
+		return
+	}
+	sessionToken, tokenErr := utils.CreateToken(userId + time.Now().String())
+	if tokenErr != nil {
+		http.Error(res, "Failed to create token: "+tokenErr.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Printf("sessionToken: %v\n userId: %v\n", sessionToken, userId)
+	utils.RespondJSON(res, http.StatusCreated, struct {
+		Token   string `json:"token"`
+		Message string `json:"message"`
+	}{
+		Message: "Login successful",
+		Token:   sessionToken,
+	})
+	res.WriteHeader(http.StatusOK)
 }
 
 func GetTasks(res http.ResponseWriter, req *http.Request) {
@@ -87,7 +164,6 @@ func EditTask(res http.ResponseWriter, req *http.Request) {
 	}
 	res.WriteHeader(http.StatusOK)
 	res.Write([]byte("Task Updated"))
-
 }
 
 func DeleteTask(res http.ResponseWriter, req *http.Request) {
@@ -103,7 +179,7 @@ func DeleteTask(res http.ResponseWriter, req *http.Request) {
 	}
 	fmt.Printf("task Id %v \n", taskId)
 
-	_, err1 := Database.Todo.Exec(`DELETE FROM users where id= $1`, taskId)
+	_, err1 := Database.Todo.Exec(`DELETE FROM tasks where id= $1`, taskId)
 	if err1 != nil {
 		http.Error(res, "Error: "+err1.Error(), http.StatusInternalServerError)
 		return
