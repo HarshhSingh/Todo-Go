@@ -40,7 +40,7 @@ BEGIN;
 --     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 --     archived_at TIMESTAMP WITH TIME ZONE
 -- );
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task
         TEXT
@@ -52,6 +52,14 @@ CREATE TABLE IF NOT EXISTS users (
         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     due_date
         TIMESTAMP WITH TIME ZONE,
+    archived_at TIMESTAMP WITH TIME ZONE
+);
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    password TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     archived_at TIMESTAMP WITH TIME ZONE
 );
 COMMIT;
