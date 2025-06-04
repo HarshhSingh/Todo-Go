@@ -1,0 +1,4 @@
+BEGIN;
+ALTER TABLE tasks
+    ADD COLUMN user_id UUID REFERENCES users(id) NOT NULL;
+COMMIT;

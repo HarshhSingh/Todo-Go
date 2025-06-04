@@ -1,14 +1,15 @@
 package handler
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/lib/pq"
 	"main/Database"
 	"main/Database/DbHelper"
+	"main/constants"
 	"main/utils"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -40,6 +41,7 @@ func RegisterUser(res http.ResponseWriter, req *http.Request) {
 	err := utils.DecodeJSONBody(req, &payload)
 	fmt.Printf("payload for /register api %v \n", payload)
 	if err != nil {
+		fmt.Printf("RegisterUser: error while registering user: %v.", err)
 		http.Error(res, "Failed to parse the body: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -64,7 +66,7 @@ func RegisterUser(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "Failed to register: "+err1.Error(), http.StatusInternalServerError)
 		return
 	}
-	res.WriteHeader(http.StatusOK)
+	//res.WriteHeader(http.StatusOK)
 
 	utils.RespondJSON(res, http.StatusCreated, struct {
 		Message string `json:"message"`
@@ -101,23 +103,63 @@ func LoginUser(res http.ResponseWriter, req *http.Request) {
 	})
 	res.WriteHeader(http.StatusOK)
 }
+func IsValidStatus(status string) bool {
+	fmt.Printf("status: %v\n", status)
 
-func GetTasks(res http.ResponseWriter, req *http.Request) {
+	for _, validStatus := range constants.AllTaskStatuses {
+		if strings.EqualFold(status, validStatus) { // case-insensitive match
+			return true
+		}
+	}
+	return false
+
+}
+func AllTasksById(res http.ResponseWriter, req *http.Request) {
 	var taskType []tasks
+	userId := chi.URLParam(req, "userId")
+	queryParamsStatus := req.URL.Query().Get("status")
+	queryParamsSearch := req.URL.Query().Get("search")
 
-	err := DbHelper.GetAllTasks(&taskType)
+	if queryParamsStatus != "" {
+		statusBool := IsValidStatus(queryParamsStatus)
+		if !statusBool {
+			http.Error(res, "Invalid status", http.StatusBadRequest)
+			return
+		}
+	}
+	res.Header().Set("Content-Type", "application/json")
+	fmt.Printf("userId: %v\n", userId)
+	validIdBool, IsUserIDValidErr := DbHelper.IsUserIDValid(userId)
+	if !validIdBool {
+		fmt.Printf("Invalid user id: %v\n", userId)
+		http.Error(res, "Invalid user id: "+userId, http.StatusBadRequest)
+		return
+	}
+	fmt.Printf("bool: %v\n", validIdBool)
+	if IsUserIDValidErr != nil {
+		fmt.Printf("IsUserIDValidErr: %v\n", IsUserIDValidErr)
+		http.Error(res, "Error: ", http.StatusBadRequest)
+		return
+	}
+	err := DbHelper.GetTasksById(&taskType, userId, queryParamsStatus, queryParamsSearch)
 	if err != nil {
 		http.Error(res, "Failed to fetch tasks: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	fmt.Printf("response : %v\n", taskType)
 	res.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(res).Encode(taskType)
-	if err != nil {
-		http.Error(res, "Failed to encode response: "+err.Error(), http.StatusInternalServerError)
-	}
-	res.WriteHeader(http.StatusOK)
 
+	if taskType == nil || len(taskType) == 0 {
+		utils.RespondJSON(res, http.StatusOK, struct {
+			Tasks []tasks `json:"tasks"`
+		}{
+			Tasks: []tasks{},
+		})
+		return
+	}
+	utils.RespondJSON(res, http.StatusOK, struct {
+		Tasks []tasks `json:"tasks"`
+	}{Tasks: taskType})
 	fmt.Printf("Response %s \n", taskType)
 	return
 }
@@ -132,7 +174,21 @@ func PostTask(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to parse the body: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	err1 := DbHelper.PostTaskByBody(taskBody.Task, taskBody.TaskStatus, taskBody.DueDate)
+	userId := chi.URLParam(r, "userId")
+	fmt.Printf("userId: %v\n", userId)
+	validIdBool, IsUserIDValidErr := DbHelper.IsUserIDValid(userId)
+	if !validIdBool {
+		fmt.Printf("Invalid user id: %v\n", userId)
+		http.Error(w, "Invalid user id: "+userId, http.StatusBadRequest)
+		return
+	}
+	fmt.Printf("bool: %v\n", validIdBool)
+	if IsUserIDValidErr != nil {
+		fmt.Printf("IsUserIDValidErr: %v\n", IsUserIDValidErr)
+		http.Error(w, "Error: ", http.StatusBadRequest)
+		return
+	}
+	err1 := DbHelper.PostTaskByBody(taskBody.Task, taskBody.TaskStatus, taskBody.DueDate, userId)
 	if err1 != nil {
 		http.Error(w, err1.Error(), http.StatusInternalServerError)
 		return
@@ -149,14 +205,44 @@ func EditTask(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	taskId := chi.URLParam(req, "taskID")
-	isTaskIdValid := DbHelper.IsTaskIdValid(res, taskId)
+	isTaskIdValid, isTaskIdValidErr := DbHelper.IsTaskIdValid(taskId)
+	if isTaskIdValidErr != nil {
+		fmt.Printf("isTaskIdValidErr: %v\n", isTaskIdValidErr)
+		http.Error(res, "Error: "+isTaskIdValidErr.Error(), http.StatusBadRequest)
+		return
+	}
+
 	if !isTaskIdValid {
+		fmt.Printf("Invalid task id: %v\n", taskId)
 		http.Error(res, "Invalid task ID", http.StatusBadRequest)
 		return
 	}
 	fmt.Printf("task Id %v \n", taskId)
 
-	err1 := DbHelper.EditTaskById(taskId, taskBody.Task, taskBody.TaskStatus, taskBody.DueDate)
+	userId := chi.URLParam(req, "userId")
+	fmt.Printf("userId: %v\n", userId)
+	validIdBool, IsUserIDValidErr := DbHelper.IsUserIDValid(userId)
+	if !validIdBool {
+		fmt.Printf("Invalid user id: %v\n", userId)
+		http.Error(res, "Invalid user id: "+userId, http.StatusBadRequest)
+		return
+	}
+	fmt.Printf("bool: %v\n", validIdBool)
+	if IsUserIDValidErr != nil {
+		fmt.Printf("IsUserIDValidErr: %v\n", IsUserIDValidErr)
+		http.Error(res, "Error: ", http.StatusBadRequest)
+		return
+	}
+	isTaskIdValidForUser, isTaskIdValidForUserErr := DbHelper.IsTaskIdValidForUser(taskId, userId)
+	if !isTaskIdValidForUser {
+		http.Error(res, "Invalid task ID", http.StatusUnauthorized)
+		return
+	}
+	if isTaskIdValidForUserErr != nil {
+		http.Error(res, "Error: "+isTaskIdValidForUserErr.Error(), http.StatusBadRequest)
+		return
+	}
+	err1 := DbHelper.EditTaskById(taskId, userId, taskBody.Task, taskBody.TaskStatus, taskBody.DueDate)
 	fmt.Printf("Inserted /task api %v \n", err1)
 	if err1 != nil {
 		http.Error(res, "Failed to parse the body: "+err1.Error(), http.StatusInternalServerError)
@@ -168,18 +254,42 @@ func EditTask(res http.ResponseWriter, req *http.Request) {
 
 func DeleteTask(res http.ResponseWriter, req *http.Request) {
 	taskId := chi.URLParam(req, "taskID")
-	if taskId == "" {
-		http.Error(res, "Invalid task ID", http.StatusBadRequest)
+	isTaskIdValid, isTaskIdValidErr := DbHelper.IsTaskIdValid(taskId)
+	if isTaskIdValidErr != nil {
+		fmt.Printf("isTaskIdValidErr: %v\n", isTaskIdValidErr)
+		http.Error(res, "Error: "+isTaskIdValidErr.Error(), http.StatusBadRequest)
 		return
 	}
-	isTaskIdValid := DbHelper.IsTaskIdValid(res, taskId)
-	if !isTaskIdValid {
-		http.Error(res, "Invalid task ID", http.StatusBadRequest)
-		return
-	}
-	fmt.Printf("task Id %v \n", taskId)
 
-	_, err1 := Database.Todo.Exec(`DELETE FROM tasks where id= $1`, taskId)
+	if !isTaskIdValid {
+		fmt.Printf("Invalid task id: %v\n", taskId)
+		http.Error(res, "Invalid task ID", http.StatusBadRequest)
+		return
+	}
+	userId := chi.URLParam(req, "userId")
+	fmt.Printf("userId: %v\n", userId)
+	validIdBool, IsUserIDValidErr := DbHelper.IsUserIDValid(userId)
+	if !validIdBool {
+		fmt.Printf("Invalid user id: %v\n", userId)
+		http.Error(res, "Invalid user id: "+userId, http.StatusBadRequest)
+		return
+	}
+	fmt.Printf("bool: %v\n", validIdBool)
+	if IsUserIDValidErr != nil {
+		fmt.Printf("IsUserIDValidErr: %v\n", IsUserIDValidErr)
+		http.Error(res, "Error: ", http.StatusBadRequest)
+		return
+	}
+	isTaskIdValidForUser, isTaskIdValidForUserErr := DbHelper.IsTaskIdValidForUser(taskId, userId)
+	if !isTaskIdValidForUser {
+		http.Error(res, "Invalid task ID", http.StatusUnauthorized)
+		return
+	}
+	if isTaskIdValidForUserErr != nil {
+		http.Error(res, "Error: "+isTaskIdValidForUserErr.Error(), http.StatusBadRequest)
+		return
+	}
+	_, err1 := Database.Todo.Exec(`DELETE FROM tasks where id= $1 and user_id=$2`, taskId, userId)
 	if err1 != nil {
 		http.Error(res, "Error: "+err1.Error(), http.StatusInternalServerError)
 		return
