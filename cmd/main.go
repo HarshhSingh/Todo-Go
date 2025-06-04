@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"main/Database"
 	"main/Routes"
 	"net/http"
@@ -10,7 +11,7 @@ import (
 
 func main() {
 	Database.Database()
-
+	fmt.Printf("Starting server at port 8080\n")
 	newRouter := Routes.PublicRoutes()
 	http.ListenAndServe(":8080", newRouter)
 }
