@@ -17,12 +17,6 @@ type publicRoutes struct {
 func PublicRoutes() *publicRoutes {
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
-	router.Use(middleware.Recoverer)
-	router.Use(middleware.StripSlashes)
-	router.Get("/health-check", func(res http.ResponseWriter, req *http.Request) {
-		res.WriteHeader(200)
-		res.Write([]byte("Hola ddd Amigo!"))
-	})
 	router.Get("/health", func(res http.ResponseWriter, req *http.Request) {
 		res.Write([]byte("Hola Amigo!"))
 	})
@@ -32,7 +26,6 @@ func PublicRoutes() *publicRoutes {
 	router.Route("/todo", func(todo chi.Router) {
 		todo.Use(middlewares.JWTAuthorisation)
 		todo.Route("/", ProtectedRoutes)
-
 	})
 	return &publicRoutes{
 		Router: router,
