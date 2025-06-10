@@ -17,12 +17,6 @@ type publicRoutes struct {
 func PublicRoutes() *publicRoutes {
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
-	router.Use(middleware.Recoverer)
-	router.Use(middleware.StripSlashes)
-	router.Get("/health-check", func(res http.ResponseWriter, req *http.Request) {
-		res.WriteHeader(200)
-		res.Write([]byte("Hola ddd Amigo!"))
-	})
 	router.Get("/health", func(res http.ResponseWriter, req *http.Request) {
 		res.Write([]byte("Hola Amigo!"))
 	})
@@ -32,7 +26,6 @@ func PublicRoutes() *publicRoutes {
 	router.Route("/todo", func(todo chi.Router) {
 		todo.Use(middlewares.JWTAuthorisation)
 		todo.Route("/", ProtectedRoutes)
-
 	})
 	return &publicRoutes{
 		Router: router,
@@ -41,15 +34,11 @@ func PublicRoutes() *publicRoutes {
 
 func ProtectedRoutes(todo chi.Router) {
 	fmt.Println("Protected Routes")
-	todo.Get("/protected", func(res http.ResponseWriter, req *http.Request) {
-		res.WriteHeader(200)
-		res.Write([]byte("Hello Protected World!"))
-	})
 	todo.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	todo.Get("/tasks", handler.GetTasks)
-	todo.Post("/task", handler.PostTask)
-	todo.Put("/task/{taskID}", handler.EditTask)
-	todo.Delete("/task/{taskID}", handler.DeleteTask)
+	todo.Get("/{userId}/tasks", handler.AllTasksById)
+	todo.Post("/{userId}/task", handler.PostTask)
+	todo.Put("/{userId}/task/{taskID}", handler.EditTask)
+	todo.Delete("/{userId}/task/{taskID}", handler.DeleteTask)
 }
