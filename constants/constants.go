@@ -13,3 +13,6 @@ var AllTaskStatuses = []string{
 	TaskStatusTodo,
 	TaskStatusInProgress,
 }
+const (
+	newString ="string"
+)

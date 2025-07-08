@@ -16,6 +16,7 @@ type publicRoutes struct {
 
 func PublicRoutes() *publicRoutes {
 	router := chi.NewRouter()
+	fmt.Println("Public Routes")
 	router.Use(middleware.Logger)
 	router.Get("/health", func(res http.ResponseWriter, req *http.Request) {
 		res.Write([]byte("Hola Amigo!"))

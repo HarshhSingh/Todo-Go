@@ -14,4 +14,5 @@ func main() {
 	fmt.Printf("Starting server at port 8080\n")
 	newRouter := Routes.PublicRoutes()
 	http.ListenAndServe(":8080", newRouter)
+	fmt.Printf("Server running on port 8080\n")
 }

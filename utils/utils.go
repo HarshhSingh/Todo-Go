@@ -26,6 +26,7 @@ func DecodeJSONBody(req *http.Request, out interface{}) error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Decoded body: %v\n", out)
 	return nil
 }
 func RespondJSON(w http.ResponseWriter, statusCode int, body interface{}) {
